@@ -1,0 +1,12 @@
+
+# pixi environments
+.pixi
+*.egg-info
+
+target/
+**/target/
+
+mujoco/
+
+# macOS
+.DS_Store

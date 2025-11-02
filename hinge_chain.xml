@@ -1,0 +1,81 @@
+<mujoco model="hinge_chain">
+  <!-- 编译选项 -->
+  <compiler angle="radian" coordinate="local"/>
+
+  <!-- 选项设置 -->
+  <option gravity="0 0 -9.81" timestep="0.002" integrator="RK4"/>
+
+  <!-- 视觉设置 -->
+  <visual>
+    <global offwidth="1920" offheight="1080"/>
+    <quality shadowsize="4096"/>
+    <map force="0.1" fogstart="3" fogend="5"/>
+  </visual>
+
+  <!-- 默认值设置 -->
+  <default>
+    <geom rgba="0.8 0.6 0.4 1" density="1000"/>
+    <joint damping="0.1" armature="0.01"/>
+  </default>
+
+  <!-- 资源定义 -->
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1=".1 .2 .3" rgb2=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+    <material name="capsule_mat" rgba="0.7 0.5 0.3 1" specular="0.5" shininess="0.5"/>
+  </asset>
+
+  <!-- 世界体 -->
+  <worldbody>
+    <!-- 地面（降低到-10，让链条不会碰到） -->
+    <geom name="floor" pos="0 0 -10" size="0 0 .25" type="plane" material="grid" condim="3"/>
+
+    <!-- 光源 -->
+    <light directional="true" diffuse=".8 .8 .8" specular=".2 .2 .2" pos="0 0 5" dir="0 0 -1"/>
+    <light directional="true" diffuse=".4 .4 .4" pos="0 0 -5" dir="0 0 1"/>
+
+    <!-- 固定点标记 -->
+    <body name="anchor" pos="0 0 0">
+      <geom name="anchor_point" type="sphere" size="0.08" rgba="1 0 0 1" mass="0.001"/>
+
+      <!-- 第一个Capsule -->
+      <body name="capsule1" pos="0 0 -0.25">
+        <!-- Capsule以body为中心，向上向下各0.25m -->
+        <geom name="geom1" type="capsule" fromto="0 0 0.25 0 0 -0.25" size="0.05" material="capsule_mat"/>
+        <!-- 铰链在body位置，即capsule顶端 -->
+        <joint name="hinge1" type="hinge" pos="0 0 0.25" axis="1 0 0" limited="false"/>
+
+        <!-- 第二个Capsule，相对于上一个body向下0.5m（一个capsule长度） -->
+        <body name="capsule2" pos="0 0 -0.5">
+          <geom name="geom2" type="capsule" fromto="0 0 0.25 0 0 -0.25" size="0.05" material="capsule_mat"/>
+          <joint name="hinge2" type="hinge" pos="0 0 0.25" axis="0 1 0" limited="false"/>
+
+          <!-- 第三个Capsule -->
+          <body name="capsule3" pos="0 0 -0.5">
+            <geom name="geom3" type="capsule" fromto="0 0 0.25 0 0 -0.25" size="0.05" material="capsule_mat"/>
+            <joint name="hinge3" type="hinge" pos="0 0 0.25" axis="1 0 0" limited="false"/>
+
+            <!-- 第四个Capsule -->
+            <body name="capsule4" pos="0 0 -0.5">
+              <geom name="geom4" type="capsule" fromto="0 0 0.25 0 0 -0.25" size="0.05" material="capsule_mat"/>
+              <joint name="hinge4" type="hinge" pos="0 0 0.25" axis="0 1 0" limited="false"/>
+
+              <!-- 第五个Capsule -->
+              <body name="capsule5" pos="0 0 -0.5">
+                <geom name="geom5" type="capsule" fromto="0 0 0.25 0 0 -0.25" size="0.05" material="capsule_mat"/>
+                <joint name="hinge5" type="hinge" pos="0 0 0.25" axis="1 0 0" limited="false"/>
+
+                <!-- 第六个Capsule -->
+                <body name="capsule6" pos="0 0 -0.5">
+                  <geom name="geom6" type="capsule" fromto="0 0 0.25 0 0 -0.25" size="0.05" material="capsule_mat"/>
+                  <joint name="hinge6" type="hinge" pos="0 0 0.25" axis="0 1 0" limited="false"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

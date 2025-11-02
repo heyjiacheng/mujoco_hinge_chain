@@ -1,0 +1,25 @@
+[project]
+authors = [{name = "jiachengxu", email = "xujiacheng1016@hotmail.com"}]
+dependencies = []
+name = "mujoco_hinge_chain"
+requires-python = ">= 3.11"
+version = "0.1.0"
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[tool.pixi.pypi-dependencies]
+mujoco = ">=3.1"
+numpy = ">=1.24"
+matplotlib = ">=3.7"
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+python = "3.11.*"
+pip = ">=25.2,<26"
