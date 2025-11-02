@@ -3,7 +3,6 @@
 //! 实现前向运动学算法，从广义坐标计算刚体的位置和姿态
 
 use super::model::{MultiBodyModel, SimulationState};
-use super::spatial_algebra::{cross_motion, SpatialMotion};
 use bevy::math::{Quat, Vec3};
 
 /// 前向运动学：从广义坐标计算刚体位置和姿态
@@ -176,6 +175,7 @@ mod tests {
             joint_offset: Vec3::new(0.0, 0.5, 0.0),
             damping: 0.0,
             armature: 0.0,
+            ..Default::default()
         };
         model.add_hinge_joint(joint1);
 

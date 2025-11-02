@@ -6,7 +6,6 @@
 
 use super::model::{MultiBodyModel, SimulationState};
 use super::GRAVITY;
-use bevy::math::{Mat3, Vec3};
 
 /// 计算科里奥利力和离心力（qfrc_bias）
 ///
@@ -227,8 +226,7 @@ pub fn compute_mass_matrix(model: &MultiBodyModel) -> Vec<Vec<f32>> {
         let joint_i = &model.joints[i];
         let body_i = &model.bodies[joint_i.child_body];
 
-        // 计算关节 i 的位置和轴（世界坐标系）
-        let joint_i_pos = body_i.position + body_i.orientation * joint_i.joint_offset;
+        // 计算关节轴（世界坐标系）
         let axis_i = if joint_i.parent_body >= 0 {
             let parent = &model.bodies[joint_i.parent_body as usize];
             parent.orientation * joint_i.axis
@@ -244,7 +242,6 @@ pub fn compute_mass_matrix(model: &MultiBodyModel) -> Vec<Vec<f32>> {
         let mut j_idx = i;
         loop {
             let joint_j = &model.joints[j_idx];
-            let body_j = &model.bodies[joint_j.child_body];
 
             // 计算关节 j 的轴（世界坐标系）
             let axis_j = if joint_j.parent_body >= 0 {
@@ -299,7 +296,7 @@ fn compute_mass_matrix_element(
     crb: &super::model::SpatialInertia,
     axis_i: &bevy::math::Vec3,
     axis_j: &bevy::math::Vec3,
-    body_pos: bevy::math::Vec3,
+    _body_pos: bevy::math::Vec3,
 ) -> f32 {
     // 对于Hinge关节，运动自由度是纯旋转
     // cdof = [0, 0, 0, axis_x, axis_y, axis_z] （6维空间向量）
@@ -429,7 +426,7 @@ mod tests {
         kinematics::forward_kinematics,
         model::{HingeJoint, RigidBody},
     };
-    use bevy::math::Mat3;
+    use bevy::math::{Mat3, Vec3};
 
     #[test]
     fn test_compute_generalized_forces() {
@@ -449,6 +446,7 @@ mod tests {
             joint_offset: Vec3::new(0.0, 0.5, 0.0),
             damping: 0.1,
             armature: 0.0,
+            ..Default::default()
         };
         model.add_hinge_joint(joint);
 
@@ -487,6 +485,7 @@ mod tests {
             joint_offset: Vec3::new(0.0, 0.5, 0.0),
             damping: 0.0,
             armature: 0.01,
+            ..Default::default()
         };
         model.add_hinge_joint(joint);
 
@@ -495,9 +494,9 @@ mod tests {
 
         let M = compute_mass_matrix(&model);
 
-        println!("质量矩阵对角元素: {:?}", M);
+        println!("质量矩阵对角元素: {:?}", M[0][0]);
 
-        // 质量矩阵应该为正
-        assert!(M[0] > 0.0);
+        // 质量矩阵对角元素应该为正
+        assert!(M[0][0] > 0.0);
     }
 }

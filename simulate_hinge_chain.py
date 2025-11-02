@@ -9,7 +9,7 @@ import mujoco.viewer
 import numpy as np
 
 # Configuration constants
-INITIAL_ANGLE_RADIANS = 0.5  # Initial disturbance angle for first joint (≈28.6°)
+INITIAL_ANGLE_RADIANS = 0.9  # Initial disturbance angle for first joint (≈51.4°)
 
 
 def main():

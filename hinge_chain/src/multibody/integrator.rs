@@ -5,6 +5,7 @@
 use super::dynamics::{compute_acceleration, compute_generalized_forces};
 use super::kinematics::forward_kinematics;
 use super::model::{MultiBodyModel, SimulationState};
+use super::velocity::compute_velocities;
 
 /// 前向动力学：计算当前状态下的加速度
 ///
@@ -21,15 +22,23 @@ use super::model::{MultiBodyModel, SimulationState};
 /// - `state`: 仿真状态（输入q和q̇，输出q̈）
 ///
 fn forward_dynamics(model: &mut MultiBodyModel, state: &mut SimulationState) {
-    // 步骤1: 前向运动学
+    // 步骤1: 前向运动学 - 计算位置和姿态
+    // 对应 MuJoCo 的 mj_kinematics()
     forward_kinematics(model, state);
 
-    // 步骤2: 计算广义力
+    // 步骤2: ⭐关键修复⭐ 计算空间速度和cdof_dot
+    // 对应 MuJoCo 的 mj_comVel()
+    // 这一步计算科里奥利/离心力所需的 cdof_dot
+    compute_velocities(model, state);
+
+    // 步骤3: 计算广义力 (重力 + 科里奥利/离心 + 阻尼)
+    // 对应 MuJoCo 的 mj_passive() + mj_rne()
     let mut qfrc = vec![0.0; model.nq];
     compute_generalized_forces(model, state, &mut qfrc);
     state.qfrc = qfrc;
 
-    // 步骤3: 计算广义加速度
+    // 步骤4: 计算广义加速度 q̈ = M^(-1) * τ
+    // 对应 MuJoCo 的 mj_fwdAcceleration()
     compute_acceleration(model, state);
 }
 
@@ -190,6 +199,7 @@ mod tests {
             joint_offset: Vec3::new(0.0, 0.5, 0.0),
             damping: 0.0,
             armature: 0.0,
+            ..Default::default()
         };
         model.add_hinge_joint(joint);
 

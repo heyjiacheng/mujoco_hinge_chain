@@ -190,6 +190,7 @@ pub fn cross_motion(vel: &SpatialMotion, v: &SpatialMotion) -> SpatialMotion {
 /// ## 用途
 /// 计算离心力: cvel ×* (I * cvel)
 ///
+#[allow(dead_code)]
 pub fn cross_force(vel: &SpatialMotion, f: &SpatialForce) -> SpatialForce {
     let omega = vel.angular;
     let v = vel.linear;
@@ -225,6 +226,7 @@ pub fn cross_force(vel: &SpatialMotion, f: &SpatialForce) -> SpatialForce {
 /// ## 返回
 /// 空间力 f = I * v
 ///
+#[allow(dead_code)]
 pub fn inertia_mul_motion(
     mass: f32,
     inertia: bevy::math::Mat3,
@@ -255,6 +257,7 @@ pub fn inertia_mul_motion(
 /// dot = ω·τ + v·f
 /// ```
 ///
+#[allow(dead_code)]
 pub fn dot_motion_force(motion: &SpatialMotion, force: &SpatialForce) -> f32 {
     motion.angular.dot(force.torque) + motion.linear.dot(force.force)
 }

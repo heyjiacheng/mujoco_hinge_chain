@@ -6,6 +6,7 @@
 
 use super::model::{MultiBodyModel, SimulationState};
 use super::spatial_algebra::{cross_motion, SpatialMotion};
+use super::subtree_com::compute_subtree_com;
 use bevy::math::Vec3;
 
 /// 计算空间速度和cdof_dot
@@ -29,6 +30,10 @@ pub fn compute_velocities(model: &mut MultiBodyModel, state: &SimulationState) {
     // 初始化：世界body速度为0
     // (对应 MuJoCo line 1936: mju_zero(d->cvel, 6))
 
+    // ⭐关键修复⭐: 计算子树质心
+    // 对应 MuJoCo engine_core_smooth.c:184-202
+    let subtree_com = compute_subtree_com(model);
+
     for (i, joint) in model.joints.iter_mut().enumerate() {
         let qvel = state.qvel[i];
 
@@ -43,19 +48,34 @@ pub fn compute_velocities(model: &mut MultiBodyModel, state: &SimulationState) {
         // 计算当前关节的运动子空间 (cdof)
         // 对于Hinge关节: cdof = [axis, axis × offset]
         //
-        // 参考: MuJoCo mju_dofCom (engine_util_spatial.c:522-541)
+        // 参考: MuJoCo mju_dofCom (engine_util_spatial.c:445-457)
+        //       MuJoCo mj_comPos (engine_core_smooth.c:223)
         //
-        // 注意：这里offset是从关节到body COM的向量
-        // 对于Capsule，COM在body中心，joint在顶端
-        // 所以offset = -joint_offset
+        // ⭐关键修复⭐: offset方向
+        // offset必须是从joint anchor到COM的向量（不是反过来！）
+        // 物理原理: v_COM = ω × r，其中r是从旋转中心到质点的向量
         let child_body = &model.bodies[joint.child_body];
-        let axis = child_body.orientation * joint.axis;  // 世界坐标系中的轴
-        let offset = -joint.joint_offset;  // COM到joint的向量
-        let offset_rotated = child_body.orientation * offset;
+
+        // 使用父body的orientation来转换轴（对于根节点用世界坐标）
+        let axis = if joint.parent_body >= 0 {
+            let parent_body = &model.bodies[joint.parent_body as usize];
+            parent_body.orientation * joint.axis
+        } else {
+            joint.axis
+        };
+
+        // offset = 从joint anchor到subtree COM的向量
+        // joint_anchor = body.position + body.orientation * joint_offset
+        // ⭐关键修复⭐: 使用subtree_com而不是body.position
+        // 对应 MuJoCo engine_core_smooth.c:223:
+        //   mju_sub3(offset, d->subtree_com+3*m->body_rootid[bi], d->xanchor+3*j);
+        let joint_anchor = child_body.position + child_body.orientation * joint.joint_offset;
+        let offset = subtree_com[joint.child_body] - joint_anchor;
 
         // cdof = [axis, axis × offset]
+        // 根据右手定则，axis × offset给出线速度方向
         let cdof_angular = axis;
-        let cdof_linear = axis.cross(offset_rotated);
+        let cdof_linear = axis.cross(offset);
         let cdof = SpatialMotion::new(cdof_angular, cdof_linear);
 
         // 计算 cdof_dot = cvel_parent × cdof (Lie bracket)
