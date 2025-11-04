@@ -85,7 +85,6 @@ cargo run --release
 |------|-----------|---------|
 | 积分器 | RK4 | RK4 |
 | 动力学算法 | CRBA + RNE | CRBA + RNE |
-| 时间步长 | 2ms | 2ms |
 | 可视化 | MuJoCo Viewer | Bevy引擎 |
 | 编程语言 | Python + C++ | Rust |
 
