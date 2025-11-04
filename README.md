@@ -63,11 +63,6 @@ cd hinge_chain
 cargo run --release
 ```
 
-**交互控制**:
-- 鼠标左键：旋转视角
-- 鼠标滚轮：缩放
-- ESC：退出
-
 详细技术文档见 [hinge_chain/README.md](hinge_chain/README.md)
 
 ## 项目结构
@@ -91,10 +86,10 @@ cargo run --release
 |------|-----------|---------|
 | 物理引擎 | MuJoCo | 自研实现 |
 | 积分器 | RK4 | RK4 |
-| 动力学算法 | MuJoCo内置 | CRBA + RNE |
+| 动力学算法 | CRBA + RNE | CRBA + RNE |
 | 时间步长 | 2ms | 1ms |
 | 可视化 | MuJoCo Viewer | Bevy引擎 |
-| 编程语言 | Python | Rust |
+| 编程语言 | C++ | Rust |
 
 ## 物理原理
 

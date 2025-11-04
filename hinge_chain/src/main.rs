@@ -19,7 +19,7 @@ use demos::{create_hinge_chain, CAPSULE_HALF_LENGTH, NUM_CAPSULES};
 use multibody::{rk4_step, MultiBodyModel, SimulationState};
 
 // 仿真参数
-const TIMESTEP: f32 = 0.002; // 2ms时间步长
+const TIMESTEP: f32 = 0.0002; // 2ms时间步长
 const SUBSTEPS: usize = 1; // 每帧1个物理子步（60fps → 500Hz物理更新）
 
 /// 物理模型资源
