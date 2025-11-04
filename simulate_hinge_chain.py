@@ -65,7 +65,6 @@ def _initialize_joint_positions(model, data):
     
     data.qpos[0] = INITIAL_ANGLE_RADIANS  # ≈28.6° (0.5 rad)
 
-
 def print_model_info(model):
     """
     打印模型详细信息

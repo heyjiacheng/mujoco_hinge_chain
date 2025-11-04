@@ -47,7 +47,7 @@ use bevy::math::{Quat, Vec3};
 /// - `model`: 多体模型（包含所有body和joint的定义）
 /// - `state`: 仿真状态（包含广义坐标 q 和广义速度 qvel）
 ///
-/// ## 副作用
+/// ## 作用
 /// 更新 `model.bodies` 中每个body的 `position`, `orientation`, `velocity`, `angular_velocity`
 ///
 pub fn forward_kinematics(model: &mut MultiBodyModel, state: &SimulationState) {

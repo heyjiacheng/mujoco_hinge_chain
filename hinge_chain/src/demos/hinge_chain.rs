@@ -130,9 +130,10 @@ pub fn create_hinge_chain() -> (MultiBodyModel, SimulationState) {
     // 初始角度扰动（单位：弧度）
     // 这些扰动会激发系统的摆动
     state.q[0] = 0.9; // 约51.4度
-    // state.q[1] = -0.05;
-    // if model.nq > 2 {
-    //     state.q[2] = 0.08;
+    // state.q[1] = -0.9; // 约-51.4度
+    // state.q[2] = 0.0;
+    // if model.nq > 1 {
+    //     state.q[2] = 0.0;
     // }
 
     println!("初始状态:");

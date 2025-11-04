@@ -27,15 +27,6 @@ pub struct SpatialInertia {
 }
 
 impl SpatialInertia {
-    /// 创建零惯性（用于初始化）
-    pub fn zero() -> Self {
-        Self {
-            mass: 0.0,
-            inertia: Mat3::ZERO,
-            com_offset: Vec3::ZERO,
-        }
-    }
-
     /// 从刚体创建空间惯性
     ///
     /// 假设质心在 body 原点（对胶囊等对称物体成立）

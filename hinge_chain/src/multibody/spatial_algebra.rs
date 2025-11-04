@@ -103,26 +103,6 @@ impl SpatialForce {
         }
     }
 
-    /// 从数组创建 [τ_x, τ_y, τ_z, f_x, f_y, f_z]
-    pub fn from_array(arr: &[f32; 6]) -> Self {
-        Self {
-            torque: Vec3::new(arr[0], arr[1], arr[2]),
-            force: Vec3::new(arr[3], arr[4], arr[5]),
-        }
-    }
-
-    /// 转换为数组
-    pub fn to_array(&self) -> [f32; 6] {
-        [
-            self.torque.x,
-            self.torque.y,
-            self.torque.z,
-            self.force.x,
-            self.force.y,
-            self.force.z,
-        ]
-    }
-
     /// 加法
     pub fn add(&self, other: &Self) -> Self {
         Self {

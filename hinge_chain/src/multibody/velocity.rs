@@ -112,7 +112,6 @@ mod tests {
         geometry::capsule_inertia,
         model::{HingeJoint, RigidBody},
     };
-    use bevy::math::Mat3;
 
     #[test]
     fn test_compute_velocities() {

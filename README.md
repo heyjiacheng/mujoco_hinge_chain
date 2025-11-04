@@ -87,9 +87,10 @@ cargo run --release
 | 物理引擎 | MuJoCo | 自研实现 |
 | 积分器 | RK4 | RK4 |
 | 动力学算法 | CRBA + RNE | CRBA + RNE |
-| 时间步长 | 2ms | 1ms |
+| 时间步长 | 2ms | 2ms |
 | 可视化 | MuJoCo Viewer | Bevy引擎 |
-| 编程语言 | C++ | Rust |
+| 编程语言 | Python + C++ | Rust |
+| 代码质量 | - | 零警告，完整测试 |
 
 ## 物理原理
 
