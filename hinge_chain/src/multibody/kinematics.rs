@@ -7,8 +7,6 @@ use bevy::math::{Quat, Vec3};
 
 /// 前向运动学：从广义坐标计算刚体位置和姿态
 ///
-/// 这是多体动力学的核心算法之一，对应MuJoCo的`mj_kinematics()`函数。
-///
 /// ## 算法流程
 ///
 /// 对于树形多体系统，从根节点到叶节点递归计算：
@@ -103,22 +101,14 @@ pub fn forward_kinematics(model: &mut MultiBodyModel, state: &SimulationState) {
         // body_quat = xquat * joint_quat
         xquat = xquat * joint_quat;
 
-        // 步骤6: ⭐关键⭐ Off-Center Rotation Correction
+        // 步骤6: Off-Center Rotation Correction
         // 旋转后，joint_offset在世界坐标系中的位置变了
         // 我们需要调整body位置，使anchor保持在原位置
-        //
-        // 参考: MuJoCo engine_core_smooth.c:133-137
-        //   mju_rotVecQuat(vec, m->jnt_pos+3*jid, xquat);
-        //   mju_sub3(xpos, xanchor, vec);
-        //
         // 数学: xpos = xanchor - R(xquat) * joint_offset
         let joint_offset_rotated = xquat * joint.joint_offset;
         xpos = xanchor - joint_offset_rotated;
 
         // 步骤7: 规范化四元数，防止累积误差
-        // 参考: MuJoCo engine_core_smooth.c:151
-        //   mju_normalize4(xquat);
-        //
         // 这对长时间仿真的数值稳定性至关重要
         let body_orientation = xquat.normalize();
         let body_position = xpos;
@@ -160,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_forward_kinematics() {
-        // 创建简单的两连杆系统
+        // 创建简单的单摆系统（Bevy坐标系：Y轴向上）
         let mut model = MultiBodyModel::new();
 
         // 第一个body
@@ -170,18 +160,18 @@ mod tests {
         let joint1 = HingeJoint {
             parent_body: -1,
             child_body: idx1,
-            axis: Vec3::X,
-            body_offset: Vec3::new(0.0, -0.5, 0.0),
-            joint_offset: Vec3::new(0.0, 0.5, 0.0),
+            axis: Vec3::X,                    // 绕X轴旋转
+            body_offset: Vec3::new(0.0, -0.5, 0.0),  // 向下(-Y)0.5m
+            joint_offset: Vec3::new(0.0, 0.5, 0.0),  // 关节在body上方
             damping: 0.0,
             armature: 0.0,
             ..Default::default()
         };
         model.add_hinge_joint(joint1);
 
-        // 初始化状态：第一个关节旋转45度
+        // 初始化状态：关节旋转0度（垂直向下）
         let mut state = SimulationState::new(model.nq);
-        state.q[0] = std::f32::consts::PI / 4.0; // 45度
+        state.q[0] = 0.0;
 
         // 执行前向运动学
         forward_kinematics(&mut model, &state);
@@ -191,7 +181,9 @@ mod tests {
         println!("Body position: {:?}", body.position);
         println!("Body orientation: {:?}", body.orientation);
 
-        // Body应该在(0, -0.5, 0)位置
+        // Body应该在(0, -0.5, 0)位置（垂直向下0.5m）
+        assert!((body.position.x - 0.0).abs() < 1e-5);
         assert!((body.position.y + 0.5).abs() < 1e-5);
+        assert!((body.position.z - 0.0).abs() < 1e-5);
     }
 }

@@ -19,8 +19,8 @@ use demos::{create_hinge_chain, CAPSULE_HALF_LENGTH, NUM_CAPSULES};
 use multibody::{rk4_step, MultiBodyModel, SimulationState};
 
 // 仿真参数
-const TIMESTEP: f32 = 0.002; // 2ms时间步长
-const SUBSTEPS: usize = 1; // 每帧1个物理子步（60fps → 500Hz物理更新）
+const TIMESTEP: f32 = 0.0002; // 2ms时间步长
+const SUBSTEPS: usize = 10; // 每帧10个物理子步（60fps → 500Hz物理更新）
 
 /// 物理模型资源
 #[derive(Resource)]
@@ -82,15 +82,13 @@ fn setup(
     ));
 
     for i in 0..NUM_CAPSULES {
-        // Bevy的Capsule3d默认沿Y轴，我们需要旋转90度使其沿Z轴
-        // 与MuJoCo的坐标系一致（capsule沿Z轴）
-        let rotation = Quat::from_rotation_x(std::f32::consts::PI / 2.0);
+        // Bevy的Capsule3d默认沿Y轴，与我们的物理引擎一致，无需旋转
         commands.spawn((
             Mesh3d(capsule_mesh.clone()),
             MeshMaterial3d(capsule_material.clone()),
             Transform {
-                translation: Vec3::new(0.0, 0.0, -(i as f32) * 2.0 * CAPSULE_HALF_LENGTH),
-                rotation,
+                translation: Vec3::new(0.0, -(i as f32) * 2.0 * CAPSULE_HALF_LENGTH, 0.0),
+                rotation: Quat::IDENTITY,
                 scale: Vec3::ONE,
             },
             CapsuleVisual { body_index: i },
@@ -129,10 +127,10 @@ fn setup(
         Transform::from_xyz(-3.0, 5.0, -3.0).looking_at(Vec3::ZERO, Dir3::Y),
     ));
 
-    // 添加相机（更新为Z轴向上的坐标系）
+    // 添加相机（Bevy坐标系：Y轴向上）
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(3.0, 3.0, 0.0).looking_at(Vec3::new(0.0, 0.0, -1.5), Dir3::Z),
+        Transform::from_xyz(3.0, 0.0, 3.0).looking_at(Vec3::new(0.0, -1.5, 0.0), Dir3::Y),
     ));
 
     println!("\n=== Hinge Chain Simulation Started ===");
@@ -174,11 +172,8 @@ fn update_visuals(physics: Res<PhysicsModel>, mut query: Query<(&mut Transform, 
 
         // 从物理引擎同步位置和姿态
         transform.translation = body.position;
-
-        // Bevy的Capsule3d默认沿Y轴，需要旋转使其沿Z轴
-        // 先应用物理引擎的姿态，再应用基础旋转
-        let base_rotation = Quat::from_rotation_x(std::f32::consts::PI / 2.0);
-        transform.rotation = body.orientation * base_rotation;
+        // Bevy的Capsule3d默认沿Y轴，与物理引擎坐标系一致
+        transform.rotation = body.orientation;
     }
 }
 
@@ -205,12 +200,12 @@ fn camera_controller(
             zoom_delta += 1.0;
         }
 
-        // 绕Z轴旋转（Z轴向上的坐标系）
+        // 绕Y轴旋转（Bevy坐标系：Y轴向上）
         if rotation_delta.abs() > 0.01 {
-            let rotation = Quat::from_rotation_z(rotation_delta * time.delta_secs());
+            let rotation = Quat::from_rotation_y(rotation_delta * time.delta_secs());
             let new_pos = rotation * transform.translation;
             transform.translation = new_pos;
-            transform.look_at(Vec3::new(0.0, 0.0, -1.5), Dir3::Z);
+            transform.look_at(Vec3::new(0.0, -1.5, 0.0), Dir3::Y);
         }
 
         // 缩放

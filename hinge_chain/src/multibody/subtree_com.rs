@@ -1,8 +1,6 @@
 //! # Subtree COM计算模块
 //!
 //! 计算每个body及其所有子body的总质心位置
-//!
-//! 对应MuJoCo的 mj_comPos (engine_core_smooth.c:184-202)
 
 use super::model::MultiBodyModel;
 use bevy::math::Vec3;
@@ -13,7 +11,7 @@ use bevy::math::Vec3;
 /// - 该body自身的质量和位置
 /// - 所有子body的质量和位置
 ///
-/// ## 算法 (对应MuJoCo engine_core_smooth.c:184-202)
+/// ## 算法
 ///
 /// 1. 初始化: subtree_com[i] = mass[i] * position[i]
 /// 2. 后向累积(从叶到根): subtree_com[parent] += subtree_com[child]
@@ -40,12 +38,6 @@ pub fn compute_subtree_com(model: &MultiBodyModel) -> Vec<Vec3> {
 
     // 步骤2: 后向累积 (从叶到根)
     // 对于链式系统，从最后一个body开始，向上累积到根
-    //
-    // 参考: MuJoCo engine_core_smooth.c:196-201
-    //   for (int i=nbody-1; i > 0; i--) {
-    //       int parent = body_parentid[i];
-    //       mju_addTo3(subtree_com + 3*parent, subtree_com + 3*i);
-    //   }
     for i in (0..model.joints.len()).rev() {
         let joint = &model.joints[i];
 

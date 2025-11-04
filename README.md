@@ -1,8 +1,14 @@
 # Hinge Chain - 铰链链式系统
 
 两种实现方式的多体动力学仿真项目：
-- **MuJoCo版本**: 使用MuJoCo物理引擎
-- **Rust版本**: 自研多体动力学求解器
+- **MuJoCo版本**: 使用MuJoCo物理引擎（用于比较）
+- **Rust版本**: 复现多体动力学求解器
+
+## 效果预览
+
+| MuJoCo版本 | Rust版本 |
+| --- | --- |
+| ![MuJoCo仿真](video/mujoco.gif) | ![Rust仿真](video/rust.gif) |
 
 ## 项目描述
 
@@ -13,7 +19,7 @@ Hinge Chain系统模拟6个胶囊(Capsule)刚体通过铰链关节连接：
 
 ## 环境安装
 
-### Pixi（Python环境管理）
+### Pixi（Mujoco版本的Python环境管理）
 
 macOS/Linux:
 ```bash
@@ -48,13 +54,6 @@ Windows: 访问 [rustup.rs](https://rustup.rs) 下载安装器
 pixi run python simulate_hinge_chain.py
 ```
 
-**交互控制**:
-- 鼠标左键：旋转视角
-- 鼠标滚轮：缩放
-- 鼠标右键：平移
-- Tab：切换可视化选项
-- ESC：退出
-
 ### Rust版本
 
 编译并运行自研求解器：
@@ -63,7 +62,7 @@ cd hinge_chain
 cargo run --release
 ```
 
-详细技术文档见 [hinge_chain/README.md](hinge_chain/README.md)
+详细Rust实现技术文档见 [hinge_chain/README.md](hinge_chain/README.md)
 
 ## 项目结构
 
@@ -84,21 +83,13 @@ cargo run --release
 
 | 特性 | MuJoCo版本 | Rust版本 |
 |------|-----------|---------|
-| 物理引擎 | MuJoCo | 自研实现 |
 | 积分器 | RK4 | RK4 |
 | 动力学算法 | CRBA + RNE | CRBA + RNE |
 | 时间步长 | 2ms | 2ms |
 | 可视化 | MuJoCo Viewer | Bevy引擎 |
 | 编程语言 | Python + C++ | Rust |
-| 代码质量 | - | 零警告，完整测试 |
 
-## 物理原理
+## 原理
 
-该系统展示了多体动力学的核心概念：
-- **约束求解**: 铰链关节限制相对运动
-- **耦合振荡**: 刚体间相互作用
-- **能量守恒**: 重力势能与动能转换
+详细Rust实现技术文档见 [hinge_chain/README.md](hinge_chain/README.md)
 
-## 许可证
-
-MIT License

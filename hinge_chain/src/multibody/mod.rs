@@ -2,6 +2,13 @@
 //!
 //! 基于广义坐标的多体动力学求解器，用于模拟由关节连接的刚体系统。
 //!
+//! ## 坐标系约定
+//!
+//! 本项目使用 **Bevy 标准坐标系**：
+//! - **Y轴向上** (+Y 是上方)
+//! - 右手坐标系
+//! - 重力沿 -Y 方向 (0, -9.81, 0)
+//!
 //! ## 核心概念
 //!
 //! ### 广义坐标系统
@@ -51,10 +58,6 @@
 //!     rk4_step(&mut model, &mut state, dt);
 //! }
 //! ```
-//!
-//! ## 参考
-//!
-//! 本实现参考了 MuJoCo 物理引擎的算法设计
 
 // 模块声明
 pub mod dynamics;     // 动力学算法 (RNE, CRBA)
@@ -73,5 +76,5 @@ pub use model::{HingeJoint, MultiBodyModel, RigidBody, SimulationState};
 
 /// 重力常量 (m/s²)
 ///
-/// 根据 MuJoCo XML 配置，重力沿 Z 轴负方向
-pub const GRAVITY: bevy::math::Vec3 = bevy::math::Vec3::new(0.0, 0.0, -9.81);
+/// Bevy 坐标系：Y轴向上，重力沿 -Y 方向
+pub const GRAVITY: bevy::math::Vec3 = bevy::math::Vec3::new(0.0, -9.81, 0.0);

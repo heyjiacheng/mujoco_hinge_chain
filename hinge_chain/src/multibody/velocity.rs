@@ -1,8 +1,6 @@
 //! # 速度计算模块
 //!
 //! 计算空间速度和运动子空间的时间导数
-//!
-//! 对应MuJoCo的 mj_comVel (engine_core_smooth.c:1932-1997)
 
 use super::model::{MultiBodyModel, SimulationState};
 use super::spatial_algebra::{cross_motion, SpatialMotion};
@@ -11,27 +9,17 @@ use bevy::math::Vec3;
 
 /// 计算空间速度和cdof_dot
 ///
-/// 对应MuJoCo的 mj_comVel() 函数
-///
 /// ## 算法
 ///
 /// 前向传播，从根到叶计算每个body的空间速度：
 /// 1. 初始化世界body的速度为0
 /// 2. 对每个body：
 ///    - 继承父body的速度
-///    - 对每个DOF：计算cdof_dot = cvel × cdof
+///    - 计算cdof_dot = cvel × cdof
 ///    - 更新cvel += cdof * qvel
 ///
-/// ## 参考
-/// - MuJoCo: engine_core_smooth.c:1932-1997
-/// - QUICK_REFERENCE.md: Section "mj_comVel() Flow"
-///
 pub fn compute_velocities(model: &mut MultiBodyModel, state: &SimulationState) {
-    // 初始化：世界body速度为0
-    // (对应 MuJoCo line 1936: mju_zero(d->cvel, 6))
-
-    // ⭐关键修复⭐: 计算子树质心
-    // 对应 MuJoCo engine_core_smooth.c:184-202
+    // 计算子树质心（用于正确计算运动子空间）
     let subtree_com = compute_subtree_com(model);
 
     for (i, joint) in model.joints.iter_mut().enumerate() {
@@ -47,12 +35,7 @@ pub fn compute_velocities(model: &mut MultiBodyModel, state: &SimulationState) {
 
         // 计算当前关节的运动子空间 (cdof)
         // 对于Hinge关节: cdof = [axis, axis × offset]
-        //
-        // 参考: MuJoCo mju_dofCom (engine_util_spatial.c:445-457)
-        //       MuJoCo mj_comPos (engine_core_smooth.c:223)
-        //
-        // ⭐关键修复⭐: offset方向
-        // offset必须是从joint anchor到COM的向量（不是反过来！）
+        // offset必须是从joint anchor到COM的向量
         // 物理原理: v_COM = ω × r，其中r是从旋转中心到质点的向量
         let child_body = &model.bodies[joint.child_body];
 
@@ -65,10 +48,6 @@ pub fn compute_velocities(model: &mut MultiBodyModel, state: &SimulationState) {
         };
 
         // offset = 从joint anchor到subtree COM的向量
-        // joint_anchor = body.position + body.orientation * joint_offset
-        // ⭐关键修复⭐: 使用subtree_com而不是body.position
-        // 对应 MuJoCo engine_core_smooth.c:223:
-        //   mju_sub3(offset, d->subtree_com+3*m->body_rootid[bi], d->xanchor+3*j);
         let joint_anchor = child_body.position + child_body.orientation * joint.joint_offset;
         let offset = subtree_com[joint.child_body] - joint_anchor;
 
@@ -79,19 +58,10 @@ pub fn compute_velocities(model: &mut MultiBodyModel, state: &SimulationState) {
         let cdof = SpatialMotion::new(cdof_angular, cdof_linear);
 
         // 计算 cdof_dot = cvel_parent × cdof (Lie bracket)
-        //
-        // 参考: MuJoCo line 1985
-        //   mju_crossMotion(cdofdot+6*j, cvel, d->cdof+6*(bda+j));
-        //
-        // 这是科里奥利/离心力的来源！
+        // 这是科里奥利/离心力的来源
         let cdof_dot_spatial = cross_motion(&parent_cvel, &cdof);
 
-        // 更新body的空间速度
-        // cvel = cvel_parent + cdof * qvel
-        //
-        // 参考: MuJoCo line 1988
-        //   mju_mulDofVec(tmp, d->cdof+6*(bda+j), d->qvel+bda+j, 1);
-        //   mju_addTo(cvel, tmp, 6);
+        // 更新body的空间速度: cvel = cvel_parent + cdof * qvel
         let cvel = parent_cvel.add(&cdof.scale(qvel));
 
         // 存储结果

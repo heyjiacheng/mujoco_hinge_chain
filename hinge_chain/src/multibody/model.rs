@@ -13,8 +13,7 @@ use bevy::math::{Mat3, Quat, Vec3};
 /// - 包含质量（平动惯性）和转动惯量（转动惯性）
 ///
 /// ## 存储格式
-/// MuJoCo 使用紧凑的 10 元素格式: [mass, Ixx, Iyy, Izz, Ixy, Ixz, Iyz, 0, 0, 0]
-/// 本实现使用更直观的分离格式
+/// 本实现使用直观的分离格式：mass, inertia matrix, com_offset
 #[derive(Debug, Clone)]
 pub struct SpatialInertia {
     /// 质量 (kg)
@@ -87,7 +86,6 @@ pub struct RigidBody {
     pub angular_velocity: Vec3,
 
     /// 6D 空间速度 [ω_x, ω_y, ω_z, v_x, v_y, v_z]
-    /// 对应 MuJoCo 的 cvel (spatial velocity at center of mass)
     pub spatial_velocity: [f32; 6],
 }
 
@@ -142,10 +140,8 @@ pub struct HingeJoint {
     pub armature: f32,
 
     /// 运动子空间 6D: [ω_x, ω_y, ω_z, v_x, v_y, v_z]
-    /// 对应 MuJoCo 的 cdof (constraint degrees of freedom)
     pub cdof: [f32; 6],
     /// 运动子空间的时间导数
-    /// 对应 MuJoCo 的 cdof_dot
     pub cdof_dot: [f32; 6],
 }
 

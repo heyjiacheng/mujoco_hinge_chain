@@ -1,13 +1,13 @@
 //! # Hinge Chain Demo
 //!
-//! 这是一个使用多体动力学框架实现的HingeChain演示程序。
+//! 铰链链条物理仿真演示
 //!
 //! ## 系统描述
 //!
 //! - **6个Capsule刚体**：每个长0.5m，半径0.05m，密度1000 kg/m³
-//! - **6个Hinge关节**：交替沿X轴和Y轴旋转
+//! - **6个Hinge关节**：交替沿X轴和Z轴旋转
 //! - **固定点**：第一个关节固定在世界坐标原点
-//! - **重力**：9.81 m/s²沿-Z方向（与MuJoCo一致）
+//! - **重力**：9.81 m/s² 沿 -Y 方向 (Bevy坐标系)
 //!
 //! ## 物理参数
 //!
@@ -26,34 +26,34 @@ pub const CAPSULE_DENSITY: f32 = 1000.0;
 
 /// 关节参数
 pub const JOINT_DAMPING: f32 = 0.1;
-pub const JOINT_ARMATURE: f32 = 0.01;
+pub const JOINT_ARMATURE: f32 = 0.0;
 
 /// Hinge Chain数量
 pub const NUM_CAPSULES: usize = 6;
 
 /// 创建HingeChain多体模型
 ///
-/// ## 几何结构
+/// ## 几何结构 (Bevy坐标系)
 ///
 /// ```text
 ///     ● (anchor point at origin)
 ///     |
-///     ├─── Capsule 1 (center at z=-0.25)
-///     |    Joint 1 (at z=0, axis=X)
+///     ├─── Capsule 1 (center at y=-0.25)
+///     |    Joint 1 (at y=0, axis=X)
 ///     |
-///     ├─── Capsule 2 (center at z=-0.75)
-///     |    Joint 2 (at z=-0.5, axis=Y)
+///     ├─── Capsule 2 (center at y=-0.75)
+///     |    Joint 2 (at y=-0.5, axis=Z)
 ///     |
-///     ├─── Capsule 3 (center at z=-1.25)
-///     |    Joint 3 (at z=-1.0, axis=X)
+///     ├─── Capsule 3 (center at y=-1.25)
+///     |    Joint 3 (at y=-1.0, axis=X)
 ///     ...
 /// ```
 ///
-/// ## 坐标系说明（与MuJoCo一致）
+/// ## 坐标系说明
 ///
-/// - **世界坐标系**: Z轴向上为正，重力沿-Z方向
-/// - **Body坐标系**: Capsule的质心在原点，长轴沿Z轴，从+0.25到-0.25
-/// - **Joint坐标系**: Joint位于capsule的顶端（body坐标系中的z=+0.25处）
+/// - **世界坐标系**: Y轴向上为正，重力沿-Y方向 (Bevy标准)
+/// - **Body坐标系**: Capsule的质心在原点，长轴沿Y轴，从+0.25到-0.25
+/// - **Joint坐标系**: Joint位于capsule的顶端（body坐标系中的y=+0.25处）
 /// - **连接规则**: 每个capsule的底部（-0.25）连接到下一个capsule的顶部（+0.25）
 ///
 /// ## 返回值
@@ -83,30 +83,27 @@ pub fn create_hinge_chain() -> (MultiBodyModel, SimulationState) {
         let body = RigidBody::new(mass, inertia);
         let body_idx = model.add_body(body);
 
-        // 关节轴：交替X和Y轴（与MuJoCo XML一致）
-        // hinge1: axis="1 0 0" (X轴)
-        // hinge2: axis="0 1 0" (Y轴)
-        // ...
+        // 关节轴：交替X轴和Z轴
+        // hinge1: 沿X轴旋转 (允许在YZ平面内摆动)
+        // hinge2: 沿Z轴旋转 (允许在XY平面内摆动)
         let axis = if i % 2 == 0 {
             Vec3::X // 沿X轴旋转
         } else {
-            Vec3::Y // 沿Y轴旋转
+            Vec3::Z // 沿Z轴旋转
         };
 
-        // Body offset: 相对父body的位置（与MuJoCo XML一致）
-        // MuJoCo XML: <body name="capsuleN" pos="0 0 -0.5">
-        // - 第一个body: 从世界原点向下0.25m（沿-Z）
+        // Body offset: 相对父body的位置
+        // - 第一个body: 从世界原点向下0.25m（沿-Y）
         // - 后续body: 从父body质心向下0.5m（一个capsule长度）
         let body_offset = if i == 0 {
-            Vec3::new(0.0, 0.0, -CAPSULE_HALF_LENGTH)
+            Vec3::new(0.0, -CAPSULE_HALF_LENGTH, 0.0)
         } else {
-            Vec3::new(0.0, 0.0, -2.0 * CAPSULE_HALF_LENGTH)
+            Vec3::new(0.0, -2.0 * CAPSULE_HALF_LENGTH, 0.0)
         };
 
         // Joint offset: 关节在body局部坐标系中的位置
-        // MuJoCo XML: <joint pos="0 0 0.25" .../>
-        // 所有关节都在capsule顶端（z=+0.25）
-        let joint_offset = Vec3::new(0.0, 0.0, CAPSULE_HALF_LENGTH);
+        // 所有关节都在capsule顶端（y=+0.25）
+        let joint_offset = Vec3::new(0.0, CAPSULE_HALF_LENGTH, 0.0);
 
         let joint = HingeJoint {
             parent_body,

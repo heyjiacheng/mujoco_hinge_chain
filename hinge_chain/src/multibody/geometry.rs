@@ -80,10 +80,10 @@ pub fn capsule_inertia(length: f32, radius: f32, density: f32) -> (f32, Mat3) {
     let total_ixx = cyl_ixx + 2.0 * hemisphere_ixx;
     let total_izz = cyl_izz + sphere_inertia;
 
-    // 惯性张量（capsule沿Z轴对齐，与MuJoCo一致）
-    // Ixx, Iyy 是垂直于长轴的惯性
-    // Izz 是沿长轴的惯性
-    let inertia = Mat3::from_diagonal(Vec3::new(total_ixx, total_ixx, total_izz));
+    // 惯性张量（capsule沿Y轴对齐）
+    // Ixx, Izz 是垂直于长轴的惯性
+    // Iyy 是沿长轴的惯性
+    let inertia = Mat3::from_diagonal(Vec3::new(total_ixx, total_izz, total_ixx));
 
     (mass, inertia)
 }

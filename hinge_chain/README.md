@@ -4,17 +4,24 @@
 
 ## 📋 项目概述
 
-本项目实现了一个完整的多体动力学求解器，包括：
+### ✨ 核心特性
 
 - **广义坐标系统**：使用最小坐标集描述系统状态
-- **前向运动学**：从关节角度计算刚体位置和姿态
+- **前向运动学**：从关节角度计算刚体位置和姿态（四元数旋转）
 - **前向动力学**：求解运动方程 M(q)·q̈ = τ
-- **RK4 时间积分**：高精度的时间演化
+  - **CRBA** (Composite Rigid Body Algorithm): 计算质量矩阵
+  - **RNE** (Recursive Newton-Euler): 计算广义力
+- **空间代数**：基于 Lie 代数的 6D 运动和力表示
+- **RK4 时间积分**：4阶精度的高精度时间演化
 - **3D 可视化**：基于 Bevy 引擎的实时渲染
+- **全面测试**：所有核心模块都有单元测试
 
-### 演示案例
+### 🎯 演示案例
 
-项目包含一个胶囊链演示：6 个胶囊通过铰链关节连接，在重力作用下摆动。
+**胶囊链演示**：6 个胶囊体通过铰链关节串联，在重力作用下自由摆动。演示了：
+- 多体系统的动力学仿真
+- 科里奥利力和陀螺效应
+- 长时间稳定仿真（RK4 积分）
 
 ## 🏗️ 代码结构
 
@@ -28,12 +35,12 @@ hinge_chain/
 │   │   ├── spatial_algebra.rs       # 6D 空间代数
 │   │   ├── kinematics.rs            # 前向运动学
 │   │   ├── velocity.rs              # 速度计算
-│   │   ├── dynamics.rs              # 动力学算法 (RNE, CRBA)
+│   │   ├── dynamics.rs              # 动力学算法 (CRBA, RNE)
 │   │   ├── integrator.rs            # 时间积分器
 │   │   ├── geometry.rs              # 几何工具
 │   │   └── subtree_com.rs           # 子树质心计算
 │   └── demos/
-│       ├── mod.rs
+│       ├── mod.rs             
 │       └── hinge_chain.rs           # 胶囊链演示
 ├── Cargo.toml
 └── README.md
@@ -41,7 +48,14 @@ hinge_chain/
 
 ## 🔬 核心概念
 
-### 1. 广义坐标 (Generalized Coordinates)
+### 1. 坐标系约定
+
+本项目使用 **Bevy 标准坐标系**：
+- **Y 轴向上** (+Y 是上方)
+- 右手坐标系
+- **重力方向**: (0, -9.81, 0) m/s²
+
+### 2. 广义坐标 (Generalized Coordinates)
 
 系统状态使用广义坐标表示：
 - **q** (位置): 关节角度（弧度）
@@ -50,9 +64,9 @@ hinge_chain/
 
 每个铰链关节贡献 1 个自由度。
 
-### 2. 空间代数 (Spatial Algebra)
+### 3. 空间代数 (Spatial Algebra)
 
-使用 6D 向量描述刚体运动：
+根据Featherstone，使用 6D 向量描述刚体运动：
 ```
 空间运动向量: [ω_x, ω_y, ω_z, v_x, v_y, v_z]
               角速度(3D)    线速度(3D)
@@ -61,7 +75,7 @@ hinge_chain/
               力矩(3D)      力(3D)
 ```
 
-### 3. 动力学管线
+### 4. 动力学管线
 
 完整的前向动力学流程：
 
@@ -70,20 +84,24 @@ hinge_chain/
    输入: q (关节角度)
    输出: 每个刚体的位置和姿态
 
-2. 速度计算 (compute_velocities)
-   输入: q, q̇
-   输出: 空间速度、运动子空间导数
+2. 子树质心计算 (compute_subtree_com)
+   输出: 每个刚体子树的质心位置
 
-3. 力计算 (compute_generalized_forces)
-   计算: 重力、阻尼、科里奥利力/离心力
+3. 速度计算 (compute_velocities)
+   输入: q, q̇
+   输出: 空间速度、运动子空间、运动子空间导数
+
+4. 力计算 (compute_generalized_forces)
+   计算: 重力、阻尼、科里奥利力/离心力、陀螺力矩
    输出: τ (广义力)
 
-4. 加速度求解 (compute_acceleration)
+5. 加速度求解 (compute_acceleration)
+   方法: CRBA 计算质量矩阵 + 高斯消元求解
    求解: M(q)·q̈ = τ
    输出: q̈ (广义加速度)
 
-5. 时间积分 (rk4_step)
-   方法: Runge-Kutta 4阶
+6. 时间积分 (rk4_step)
+   方法: Runge-Kutta 4阶（每步 4 次前向动力学）
    更新: q, q̇
 ```
 
@@ -154,78 +172,13 @@ cargo run --release
 
 - **方向键 ←/→**: 绕 Z 轴旋转相机
 - **方向键 ↑/↓**: 缩放视野
-- **ESC**: 退出程序
-
-### 代码示例
-
-```rust
-use hinge_chain::multibody::*;
-
-// 1. 创建刚体
-let mass = 1.0;
-let inertia = capsule_inertia(length, radius, mass);
-let body = RigidBody::new(mass, inertia);
-
-// 2. 构建模型
-let mut model = MultiBodyModel::new();
-let body_idx = model.add_body(body);
-
-// 3. 添加关节
-let joint = HingeJoint {
-    parent_body: -1,        // 固定在世界坐标系
-    child_body: body_idx,
-    axis: Vec3::X,          // 绕 X 轴旋转
-    body_offset: Vec3::new(0.0, 0.0, length/2.0),
-    joint_offset: Vec3::new(0.0, 0.0, -length/2.0),
-    damping: 0.5,
-    armature: 0.0,
-    ..Default::default()
-};
-model.add_hinge_joint(joint);
-
-// 4. 初始化状态
-let mut state = SimulationState::new(model.nq);
-
-// 5. 仿真循环
-let dt = 0.001;  // 1ms
-loop {
-    rk4_step(&mut model, &mut state, dt);
-}
-```
-
-## 📊 性能特征
-
-| 特性 | 值 |
-|------|-----|
-| 时间步长 | 2ms (可调) |
-| 积分器 | RK4 (4阶精度) |
-| 质量矩阵 | CRBA O(n²) |
-| 线性求解器 | 高斯消元 O(n³) |
-| 适用规模 | 小型系统 (< 100 DOF) |
-| 代码质量 | ✅ 零编译警告 |
-
-## 🔧 技术细节
-
-### 坐标系约定
-
-- **世界坐标系**: 右手系，Z 轴向上
-- **重力方向**: -Z 方向 (0, 0, -9.81 m/s²)
-- **关节轴**: 在父体坐标系中定义
-- **空间向量**: [角量, 线量] 顺序
 
 ### 数值稳定性
 
-- 质量矩阵求解使用部分主元高斯消元
-- 避免除以接近零的数（使用阈值 1e-10）
-- RK4 相比欧拉法有更好的能量守恒
-
-### 限制和假设
-
-1. **树状拓扑**: 不支持闭环机构
-2. **刚体假设**: 物体不变形
-3. **无碰撞**: 未实现碰撞检测和接触力
-4. **单关节类型**: 仅支持铰链关节
-5. **质心假设**: 胶囊质心在几何中心
+- **奇异值处理**: 避免除以接近零的数（阈值 1e-10）
+- **RK4 积分**: 相比欧拉法有更好的稳定性
+- **四元数归一化**: 每步归一化防止漂移
+- **多子步积分**: 每帧 10 个子步提高稳定性
 
 ## 📚 参考文献
 
@@ -236,29 +189,3 @@ loop {
 2. **MuJoCo Physics Engine**
    - 算法实现参考
    - 数据结构设计
-
-3. **NumPy-ML Implementation**
-   - Python 原型实现
-
-## 🛠️ 未来改进
-
-- [ ] 实现 LDL^T 分解优化线性求解
-- [ ] 添加更多关节类型（球关节、滑动关节）
-- [ ] 实现碰撞检测和接触力
-- [ ] 支持外力输入
-- [ ] 添加更多测试用例
-- [ ] 性能优化（缓存质量矩阵）
-- [ ] 支持闭环机构
-
-## 📝 许可证
-
-本项目仅供学习和研究使用。
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
----
-
-**作者**: Jiadeng Xu
-**日期**: 2025

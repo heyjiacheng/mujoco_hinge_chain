@@ -9,8 +9,6 @@ use super::velocity::compute_velocities;
 
 /// 前向动力学：计算当前状态下的加速度
 ///
-/// 这是完整的前向动力学管线，对应MuJoCo的`mj_forward()`函数。
-///
 /// ## 算法流程
 ///
 /// 1. **Forward Kinematics**: q → (位置, 姿态)
@@ -23,22 +21,17 @@ use super::velocity::compute_velocities;
 ///
 fn forward_dynamics(model: &mut MultiBodyModel, state: &mut SimulationState) {
     // 步骤1: 前向运动学 - 计算位置和姿态
-    // 对应 MuJoCo 的 mj_kinematics()
     forward_kinematics(model, state);
 
-    // 步骤2: ⭐关键修复⭐ 计算空间速度和cdof_dot
-    // 对应 MuJoCo 的 mj_comVel()
-    // 这一步计算科里奥利/离心力所需的 cdof_dot
+    // 步骤2: 计算空间速度和cdof_dot
     compute_velocities(model, state);
 
     // 步骤3: 计算广义力 (重力 + 科里奥利/离心 + 阻尼)
-    // 对应 MuJoCo 的 mj_passive() + mj_rne(flg_acc=0)
     let mut qfrc = vec![0.0; model.nq];
     compute_generalized_forces(model, state, false, &mut qfrc);
     state.qfrc = qfrc;
 
     // 步骤4: 计算广义加速度 q̈ = M^(-1) * τ
-    // 对应 MuJoCo 的 mj_fwdAcceleration()
     compute_acceleration(model, state);
 }
 

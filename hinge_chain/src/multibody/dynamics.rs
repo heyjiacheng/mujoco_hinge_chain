@@ -8,54 +8,33 @@ use super::model::{MultiBodyModel, SimulationState};
 use super::spatial_algebra::{cross_force, inertia_mul_motion, SpatialForce, SpatialMotion};
 use super::GRAVITY;
 
-/// 计算广义力（使用完整的RNE算法，与MuJoCo一致）
+/// 计算广义力（RNE算法）
 ///
-/// ## 理论背景
+/// ## 递归牛顿-欧拉算法（RNE）
 ///
-/// 递归牛顿-欧拉算法（RNE）计算广义力 τ，包括：
+/// 计算广义力 τ，包括：
 /// - 重力
 /// - 科里奥利力和离心力
 /// - 被动力（弹簧、阻尼等）
 ///
-/// ## MuJoCo的RNE算法（mj_rne, engine_core_smooth.c:2068-2119）
-///
-/// 完整的RNE算法包括两个递归过程：
-/// 1. **前向递归**: 从根到叶计算加速度
-/// 2. **后向递归**: 从叶到根计算力和力矩
-/// 3. **投影**: 将空间力投影到关节空间
-///
 /// ## 算法流程
 ///
-/// ### 前向传递（计算加速度）
-/// ```text
-/// for each body (from root to leaf):
-///     // 科里奥利加速度项
-///     cacc = cacc_parent + cdof_dot * qvel
+/// 1. **前向递归**: 从根到叶计算加速度
+///    - 科里奥利加速度: cacc = cacc_parent + cdof_dot * qvel
+///    - 可选加速度项: cacc += cdof * qacc (如果 flg_acc=true)
+///    - 空间力: cfrc = I*cacc + cvel×(I*cvel)
 ///
-///     // 如果计算真实加速度（flg_acc=1）
-///     if flg_acc:
-///         cacc += cdof * qacc
+/// 2. **后向递归**: 从叶到根累积力
+///    - cfrc[parent] += cfrc[child]
 ///
-///     // 计算空间力
-///     cfrc_body = cinert * cacc + cvel × (cinert * cvel)
-/// ```
-///
-/// ### 后向传递（累积力）
-/// ```text
-/// for each body (from leaf to root):
-///     cfrc_body[parent] += cfrc_body[child]
-/// ```
-///
-/// ### 投影到关节空间
-/// ```text
-/// for each dof:
-///     qfrc[i] = cdof[i]^T * cfrc_body[i]
-/// ```
+/// 3. **投影到关节空间**
+///    - qfrc[i] = cdof[i]^T * cfrc[i]
+///    - 加上阻尼力: qfrc[i] -= damping * qvel[i]
 ///
 /// ## 参数
 /// - `model`: 多体模型（需要已计算 cvel, cdof, cdof_dot）
 /// - `state`: 当前状态（需要 qvel）
-/// - `flg_acc`: 是否包含加速度项（0=只计算qfrc_bias，1=完整力）
+/// - `flg_acc`: 是否包含加速度项
 /// - `qfrc_out`: 输出的广义力数组
 ///
 pub fn compute_generalized_forces(
@@ -68,82 +47,49 @@ pub fn compute_generalized_forces(
 
     let nbody = model.bodies.len();
 
-    // ===== 1. 初始化世界加速度 =====
-    // 对应 MuJoCo line 2074-2077
-    //
-    // ⚠️ 关键区别：MuJoCo 计算 qfrc_bias，运动方程是 M*qacc = -qfrc_bias
-    // 我们直接计算 qfrc，运动方程是 M*qacc = qfrc
-    // 因此我们需要 qfrc = -qfrc_bias
-    //
-    // MuJoCo 设置 cacc = -gravity 来计算 qfrc_bias
-    // 我们设置 cacc = +gravity 来计算 qfrc = -qfrc_bias
-    //
-    // ⚠️ 注意：在 MuJoCo 中，body[0] 是虚拟的"世界body"
-    // 但在我们的实现中，bodies[0] 是第一个实际的刚体
-    // 所以我们需要单独存储世界加速度
-    let world_cacc = SpatialMotion::new(
-        bevy::math::Vec3::ZERO,
-        GRAVITY, // ⭐修复⭐ 使用 +gravity（而不是 MuJoCo 的 -gravity）
-    );
+    // 1. 初始化世界加速度
+    // 世界参考系的加速度等于重力加速度
+    let world_cacc = SpatialMotion::new(bevy::math::Vec3::ZERO, GRAVITY);
 
     let mut cacc = vec![SpatialMotion::zero(); nbody];
-
-    // ===== 2. 前向传递：累积加速度，计算力 =====
-    // 对应 MuJoCo line 2080-2093
     let mut cfrc_body = vec![SpatialForce::zero(); nbody];
 
+    // 2. 前向传递：计算加速度和空间力
     for (i, joint) in model.joints.iter().enumerate() {
         let child_idx = joint.child_body;
         let child_body = &model.bodies[child_idx];
 
         // 获取父body的加速度
-        // 如果 parent_body = -1，表示连接到世界，使用世界加速度
         let parent_cacc = if joint.parent_body >= 0 {
             cacc[joint.parent_body as usize]
         } else {
-            world_cacc // 世界加速度（包含重力）
+            world_cacc
         };
 
-        // 从 joint 获取 cdof 和 cdof_dot（6D向量）
+        // 从 joint 获取运动子空间和其导数
         let cdof = SpatialMotion::from_array(&joint.cdof);
         let cdof_dot = SpatialMotion::from_array(&joint.cdof_dot);
 
-        // ⭐核心⭐ 计算加速度：
-        // cacc = cacc_parent + cdof_dot * qvel
-        //
-        // 对应 MuJoCo line 2085-2086:
-        //   mju_mulDofVec(tmp, d->cdof_dot+6*bda, d->qvel+bda, ...)
-        //   mju_add(loc_cacc+6*i, loc_cacc+6*parent, tmp, 6)
+        // 计算子体加速度：cacc = cacc_parent + cdof_dot * qvel
         let mut child_cacc = parent_cacc.add(&cdof_dot.scale(state.qvel[i]));
 
-        // 如果需要真实加速度（不只是 qfrc_bias）
-        // cacc += cdof * qacc
-        //
-        // 对应 MuJoCo line 2088-2091
+        // 可选：加上关节加速度项
         if flg_acc {
             child_cacc = child_cacc.add(&cdof.scale(state.qacc[i]));
         }
 
         cacc[child_idx] = child_cacc;
 
-        // ⭐核心⭐ 计算空间力：
-        // cfrc_body = cinert * cacc + cvel × (cinert * cvel)
-        //
-        // 对应 MuJoCo line 2095-2099:
-        //   mju_mulInertVec(loc_cfrc_body+6*i, d->cinert+10*i, loc_cacc+6*i)
-        //   mju_mulInertVec(tmp, d->cinert+10*i, d->cvel+6*i)
-        //   mju_crossForce(tmp1, d->cvel+6*i, tmp)
-        //   mju_addTo(loc_cfrc_body+6*i, tmp1, 6)
-
-        // 第一项：I * cacc
+        // 计算空间力：cfrc = I*cacc + cvel×(I*cvel)
+        // 第一项：惯性力
         let f1 = inertia_mul_motion(
             child_body.mass,
             child_body.inertia,
-            bevy::math::Vec3::ZERO, // com_offset = 0 for capsule
+            bevy::math::Vec3::ZERO,
             &child_cacc,
         );
 
-        // 第二项：cvel × (I * cvel) - 科里奥利/离心力
+        // 第二项：科里奥利力和离心力
         let cvel = SpatialMotion::from_array(&child_body.spatial_velocity);
         let i_cvel = inertia_mul_motion(
             child_body.mass,
@@ -156,8 +102,7 @@ pub fn compute_generalized_forces(
         cfrc_body[child_idx] = f1.add(&f2);
     }
 
-    // ===== 3. 后向传递：累积子体力到父体 =====
-    // 对应 MuJoCo line 2102-2106
+    // 3. 后向传递：累积子体力到父体
     for i in (0..model.joints.len()).rev() {
         let joint = &model.joints[i];
         if joint.parent_body >= 0 {
@@ -166,18 +111,15 @@ pub fn compute_generalized_forces(
         }
     }
 
-    // ===== 4. 投影到关节空间：qfrc = cdof^T * cfrc_body =====
-    // 对应 MuJoCo line 2109
+    // 4. 投影到关节空间：qfrc = cdof^T * cfrc_body
     for (i, joint) in model.joints.iter().enumerate() {
         let cdof = SpatialMotion::from_array(&joint.cdof);
         let force = &cfrc_body[joint.child_body];
 
-        // qfrc[i] = cdof[i] · cfrc_body[i]
-        // = cdof.angular · force.torque + cdof.linear · force.force
+        // 空间力投影到关节轴
         qfrc_out[i] = cdof.angular.dot(force.torque) + cdof.linear.dot(force.force);
 
-        // ===== 5. 添加被动力（阻尼） =====
-        // 对应 MuJoCo 的 mj_passive()
+        // 添加阻尼力
         qfrc_out[i] -= joint.damping * state.qvel[i];
     }
 }
@@ -202,7 +144,7 @@ pub fn compute_generalized_forces(
 /// - 将每个body及其所有下游body视为一个"复合刚体"
 /// - 计算这个复合刚体相对于当前关节的惯性
 ///
-/// ### 算法步骤（对应 MuJoCo 的 mj_crb）
+/// ### 算法步骤
 ///
 /// 1. **初始化复合惯性**: crb[i] = 每个body的空间惯性
 /// 2. **后向递推**: 从叶到根累积子树惯性

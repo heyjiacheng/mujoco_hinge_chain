@@ -2,25 +2,21 @@
 //!
 //! 实现6D空间向量的运算，用于多体动力学计算。
 //!
-//! 基于Featherstone的空间代数理论和MuJoCo的实现。
+//! 基于Featherstone的空间代数理论。
 //!
 //! ## 空间向量格式
 //!
-//! 6D空间向量的布局（与MuJoCo一致）:
+//! 6D空间向量的布局:
 //! ```text
 //! v[6] = [ω_x, ω_y, ω_z, v_x, v_y, v_z]
 //!        [角速度/力矩,  线速度/力]
 //! ```
-//!
-//! 参考: MuJoCo engine_util_spatial.c
 
 use bevy::math::Vec3;
 
 /// 空间运动向量 (Spatial Motion Vector)
 ///
 /// 表示6D运动: [角速度, 线速度]
-///
-/// 对应MuJoCo的 cvel, cdof
 #[derive(Debug, Clone, Copy)]
 pub struct SpatialMotion {
     /// 角速度分量 (ω)
@@ -81,8 +77,6 @@ impl SpatialMotion {
 /// 空间力向量 (Spatial Force Vector)
 ///
 /// 表示6D力: [力矩, 力]
-///
-/// 对应MuJoCo的 cfrc_body
 #[derive(Debug, Clone, Copy)]
 pub struct SpatialForce {
     /// 力矩分量 (τ)
@@ -123,8 +117,6 @@ impl std::ops::AddAssign for SpatialForce {
 ///
 /// 计算 res = vel × v (Lie bracket)
 ///
-/// 对应MuJoCo的 mju_crossMotion (engine_util_spatial.c:370-381)
-///
 /// ## 数学公式
 ///
 /// ```text
@@ -158,8 +150,6 @@ pub fn cross_motion(vel: &SpatialMotion, v: &SpatialMotion) -> SpatialMotion {
 ///
 /// 计算 res = vel ×* f (对偶算子)
 ///
-/// 对应MuJoCo的 mju_crossForce (engine_util_spatial.c:385-396)
-///
 /// ## 数学公式
 ///
 /// ```text
@@ -189,13 +179,6 @@ pub fn cross_force(vel: &SpatialMotion, f: &SpatialForce) -> SpatialForce {
 /// 空间惯性向量乘法
 ///
 /// 计算 f = I * v，其中I是空间惯性矩阵
-///
-/// 对应MuJoCo的 mju_mulInertVec (engine_util_spatial.c:434-441)
-///
-/// ## 简化实现
-///
-/// 本实现假设质心在body原点（对Capsule成立），简化了计算。
-/// 完整实现需要处理质心偏移。
 ///
 /// ## 参数
 /// - `mass`: 质量
@@ -228,8 +211,6 @@ pub fn inertia_mul_motion(
 /// 点积投影 (Dot Product)
 ///
 /// 计算空间运动与空间力的点积，用于投影到关节空间
-///
-/// 对应 τ = cdof^T · cfrc_body
 ///
 /// ## 数学公式
 ///
