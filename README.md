@@ -1,4 +1,4 @@
-# Hinge Chain - 铰链链式系统
+# Hinge Chain
 
 两种实现方式的多体动力学仿真项目：
 - **MuJoCo版本**: 使用MuJoCo物理引擎（用于比较）
